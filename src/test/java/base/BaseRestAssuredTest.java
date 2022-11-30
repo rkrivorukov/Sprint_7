@@ -1,2 +1,9 @@
-package PACKAGE_NAME;public class BaseRestAssuredTest {
+package base;
+
+import io.restassured.RestAssured;
+
+public class BaseRestAssuredTest {
+    {
+        RestAssured.baseURI = "http://qa-scooter.praktikum-services.ru/";
+    }
 }

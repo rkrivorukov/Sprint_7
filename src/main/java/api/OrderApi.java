@@ -1,4 +1,4 @@
-package service;
+package api;
 
 import io.restassured.response.Response;
 import model.Order;

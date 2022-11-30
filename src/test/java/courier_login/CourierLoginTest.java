@@ -1,103 +1,84 @@
 package courier_login;
 
+import api.CourierApi;
+import base.BaseRestAssuredTest;
 import io.qameta.allure.junit4.DisplayName;
-import io.restassured.RestAssured;
 import io.restassured.common.mapper.TypeRef;
-import io.restassured.config.HttpClientConfig;
-import io.restassured.config.RestAssuredConfig;
 import io.restassured.response.Response;
 import model.Courier;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.http.HttpStatus;
+import org.junit.*;
 
 import java.util.Map;
 
-import static io.restassured.RestAssured.given;
-
-public class CourierLoginTest {
+public class CourierLoginTest extends BaseRestAssuredTest {
     private static final String LOGIN = "landsreyk";
     private static final String PASSWORD = "1234";
     private static final String FIRST_NAME = "saske";
 
+    private static CourierApi courierApi;
+
+    private Courier courier;
+
+    @BeforeClass
+    public static void beforeClass() {
+        courierApi = new CourierApi();
+    }
+
     @Before
     public void setUp() {
-        RestAssured.baseURI = "http://qa-scooter.praktikum-services.ru/";
-        Courier courier = new Courier(LOGIN, PASSWORD, FIRST_NAME);
+        courier = new Courier(LOGIN, PASSWORD, FIRST_NAME);
         System.out.println("creating user");
-        given().contentType("application/json").body(courier).post("/api/v1/courier");
+        courierApi.create(courier);
     }
 
     @After
     public void tearDown() {
-        Response response = given().contentType("application/json")
-                .body(Map.of("login", LOGIN, "password", PASSWORD))
-                .post("/api/v1/courier/login");
-        Map<String, String> map = response.getBody().as(new TypeRef<>() {
-        });
-        String id = map.get("id");
+        courier = new Courier(LOGIN, PASSWORD, FIRST_NAME);
         System.out.println("deleting user");
-        given().contentType("application/json").delete("/api/v1/courier/" + id);
+        courierApi.delete(courier);
     }
 
     @Test
     @DisplayName("курьер может авторизоваться")
     public void loginCourierOnSuccess() {
-        Response response = given().contentType("application/json")
-                .body(Map.of("login", LOGIN, "password", PASSWORD))
-                .post("/api/v1/courier/login");
-        response.then().statusCode(200);
-        response.prettyPrint();
+        Response response = courierApi.login(courier);
+        response.then().statusCode(HttpStatus.SC_OK);
     }
 
     @Test
     @DisplayName("система вернёт ошибку, если неправильно указать логин или пароль")
     public void loginCourierOnError1() {
-        Response response = given().contentType("application/json")
-                .body(Map.of("login", LOGIN, "password", 4321))
-                .post("/api/v1/courier/login");
-        response.then().statusCode(404);
-        response.prettyPrint();
+        courier.setPassword("4321");
+        Response response = courierApi.login(courier);
+        response.then().statusCode(HttpStatus.SC_NOT_FOUND);
     }
 
     @Test
     @DisplayName("если какого-то поля нет, запрос возвращает ошибку")
     public void loginCourierOnError2() {
-        Response response = given().contentType("application/json")
-                .body(Map.of("password", PASSWORD))
-                .post("/api/v1/courier/login");
-        response.then().statusCode(400);
-        response.prettyPrint();
+        courier.setLogin(null);
+        Response response = courierApi.login(courier);
+        response.then().statusCode(HttpStatus.SC_BAD_REQUEST);
 
-        response = given().contentType("application/json")
-                .config(RestAssuredConfig.config()
-                        .httpClient(HttpClientConfig.httpClientConfig()
-                                .setParam("http.connection.timeout",10000)))
-                .body(Map.of("login", LOGIN))
-                .post("/api/v1/courier/login");
-        response.then().statusCode(504);
-        response.prettyPrint();
+        courier.setLogin(LOGIN);
+        courier.setPassword(null);
+        response = courierApi.login(courier);
+        response.then().statusCode(HttpStatus.SC_GATEWAY_TIMEOUT);
     }
 
     @Test
     @DisplayName("если авторизоваться под несуществующим пользователем, запрос возвращает ошибку")
     public void loginCourierOnError3() {
-        tearDown();
-        Response response = given().contentType("application/json")
-                .body(Map.of("login", LOGIN, "password", PASSWORD))
-                .post("/api/v1/courier/login");
-        response.then().statusCode(404);
-        response.prettyPrint();
+        courierApi.delete(courier);
+        Response response = courierApi.login(courier);
+        response.then().statusCode(HttpStatus.SC_NOT_FOUND);
     }
 
     @Test
     @DisplayName("успешный запрос возвращает id")
     public void loginCourierOnSuccess2() {
-        Response response = given().contentType("application/json")
-                .body(Map.of("login", LOGIN, "password", PASSWORD))
-                .post("/api/v1/courier/login");
-        response.prettyPrint();
+        Response response = courierApi.login(courier);
         Map<String, String> map = response.getBody().as(new TypeRef<>() {
         });
         String id = map.get("id");

@@ -1,4 +1,4 @@
-package service;
+package api;
 
 import io.restassured.common.mapper.TypeRef;
 import io.restassured.response.Response;
